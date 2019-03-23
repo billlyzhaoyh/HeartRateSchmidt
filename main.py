@@ -22,8 +22,7 @@ def butterworth_high_pass_filter(original_signal,order,cutoff,sampling_frequency
 	return high_pass_filtered_signal
 
 def schmidt_spike_removal(original_signal, fs):
-	import median from statistics 
-	
+	from statistics import median
 
 	#Find the window size
 	windowsize = round(fs/2)
@@ -38,6 +37,10 @@ def schmidt_spike_removal(original_signal, fs):
 
 	#While there are still samples greater than 3* the median value of the
 	#MAAs, then remove those spikes:
+	while any(MAA >median(MAAs)*3 for MAA in MAAs):
+		#Find the window with the max MAA
+		
+
 	while(~isempty(find((MAAs>median(MAAs)*3))))
     
     	%Find the window with the max MAA:
