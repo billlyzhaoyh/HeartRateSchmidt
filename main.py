@@ -32,54 +32,46 @@ def schmidt_spike_removal(original_signal,fs,figures=False):
     #Find any samples outside of a integer number of windows
     trailingsamples = len(original_signal)%windowsize
     #Reshape the signal into a number of windows
+    sampleframes=[original_signal[i*windowsize:(windowsize)+i*windowsize] for i in range((len(original_signal)-(trailingsamples))//windowsize)]
+    sampleframes=np.array(sampleframes)
+	#Find the MAAs
 
-    sampleframes=[original_signal[i:(i+windowsize)] for i in range((len(original_signal)-(trailingsamples))//windowsize)]
-    #Find the MAAs
     MAAs = [ max([abs(number) for number in individual_frame]) for individual_frame in sampleframes]
+    while any(MAA >median(MAAs)*3 for MAA in MAAs):#Find the window with the max MAA
+    	window_num=np.argmax(MAAs)
+    	#Find the postion of the spike within that window
+    	abssampleframe=[np.abs(number) for number in sampleframes[window_num]]
+    	spike_position=np.argmax(abssampleframe)
+    	#Finding zero crossings (where there may not be actual 0 values, just a change from positive to negative)
+    	selected_window=sampleframes[window_num]
+    	zero_crossings=np.abs(np.diff(np.sign(selected_window)))
+    	zero_crossings=np.append(zero_crossings,0)
+    	zero_crossings=(zero_crossings>1).astype(int)
+    	#Find the start of the spike, finding the last zero crossing before
+    	#spike position. If that is empty, take the start of the window:
+    	zero_crossings_list=zero_crossings.tolist()
+    	start_nonzeros=[i for i, e in enumerate(zero_crossings_list[:spike_position]) if e != 0]
+    	if not start_nonzeros:
+        	spike_start=0
+    	else:
+        	spike_start=start_nonzeros[-1]
 
-    #While there are still samples greater than 3* the median value of the
-    #MAAs, then remove those spikes:
-    while any(MAA >median(MAAs)*3 for MAA in MAAs):
-        #Find the window with the max MAA
-        val = max(MAAs)
-        window_num=MAAs.index(val)
-        if len(window_num)>1:
-            window_num = window_num[0]
-        #Find the postion of the spike within that window
-        abssampleframe=[abs(number) for number in sampleframes[window_num]]
-        spike_position=abssampleframe.index(max(abssampleframe))
-        if len(spike_position)>1:
-            spike_position = spike_position[0]
-        #Finding zero crossings (where there may not be actual 0 values, just a change from positive to negative)
-        selected_window=np.array(sampleframes[window_num])
-        zero_crossings=np.abs(np.diff(np.sign(selected_window)))
-        zero_crossings.append(0)
-        zero_crossings=(zero_crossings>1).astype(int)
-        #Find the start of the spike, finding the last zero crossing before
-        #spike position. If that is empty, take the start of the window:
-        zero_crossings_list=zero_crossings.tolist()
-        start_nonzeros=[i for i, e in enumerate(zero_crossings_list[:spike_position]) if e != 0]
-        if not start_nonzeros:
-            spike_start=start_nonzeros[-1]
-        else:
-            spike_start=0
+    	#Find the end of the spike, finding the first zero crossing after
+    	#spike position. If that is empty, take the end of the window:
+    	zero_crossings_list[:spike_position] = [0] * (spike_position)
+    	after_nonzeros=[i for i, e in enumerate(zero_crossings_list) if e != 0]
+    	if not after_nonzeros:
+        	spike_end=windowsize
+    	else:
+        	spike_end=after_nonzeros[-1]
 
-        #Find the end of the spike, finding the first zero crossing after
-        #spike position. If that is empty, take the end of the window:
-        zero_crossings_list[:spike_position] = 0
-        after_nonzeros==[i for i, e in enumerate(zero_crossings_list) if e != 0]
-        if not start_nonzeros:
-            spike_end=start_nonzeros[-1]
-        else:
-            spike_end=windowsize
+    	#Set to Zero
+    	sampleframes[window_num][spike_start:spike_end] = 0.0001
 
-        #Set to Zero
-        sampleframes[window_num][spike_start:spike_end] = 0.0001
+    	#Recaclulate MAAs
+    	MAAs = [ max([abs(number) for number in individual_frame]) for individual_frame in sampleframes]
 
-        #Recaclulate MAAs
-        MAAs = [ max([abs(number) for number in individual_frame]) for individual_frame in sampleframes]
-
-    despiked_signal = np.array(sampleframes)
+    despiked_signal = sampleframes
 
     # Add the trailing samples back to the signal:
     despiked_signal=np.append(despiked_signal,np.array(original_signal[despiked_signal.size:-1]))
